@@ -2,15 +2,26 @@
   "name": "discord-oidc-worker",
   "version": "1.0.1",
   "description": "Discord OIDC Wrapper in CF Workers",
+  "private": true,
+  "type": "module",
   "main": "worker.js",
   "scripts": {
-    "start": "wrangler dev --local"
+    "start": "wrangler dev",
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "deploy:dry-run": "wrangler deploy --dry-run",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
-  "author": "Erisa A <erisa@erisa.uk>",
   "license": "MIT",
+  "engines": {
+    "node": ">=22.0.0"
+  },
   "dependencies": {
-    "hono": "^4.6.20",
-    "jose": "^5.9.6",
-    "wrangler": "3.107.2"
+    "hono": "^4.12.32",
+    "jose": "^5.10.0"
+  },
+  "devDependencies": {
+    "wrangler": "^4.115.0"
   }
 }
