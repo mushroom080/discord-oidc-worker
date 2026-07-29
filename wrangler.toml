@@ -1,12 +1,12 @@
 name = "discord-oidc"
 main = "worker.js"
-compatibility_date = "2022-12-24"
-
-kv_namespaces = [
-  { binding = "KV", id = "0b9abda82acf461c8d4ecda656217e20", preview_id = "b43c22430b5240dea89cd6cc350d3946" }
-]
+compatibility_date = "2026-07-30"
+keep_vars = true
 
 [vars]
 DISCORD_CLIENT_ID = "000000000000000000"
 CLOUDFLARE_ACCESS_REDIRECT_URL = "https://your-team.cloudflareaccess.com/cdn-cgi/access/callback"
 DISCORD_GUILD_IDS = "[]"
+
+[[kv_namespaces]]
+binding = "KV"
