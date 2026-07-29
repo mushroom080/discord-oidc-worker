@@ -1,0 +1,5 @@
+# Required Discord OAuth application secret
+DISCORD_CLIENT_SECRET="replace-with-your-discord-client-secret"
+
+# Optional role claims. Leave empty when role claims are not needed.
+DISCORD_TOKEN=""

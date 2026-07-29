@@ -1,3 +1,6 @@
 node_modules/
-config.json
 .wrangler/
+.dev.vars*
+!.dev.vars.example
+.env*
+!.env.example

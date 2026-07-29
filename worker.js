@@ -1,6 +1,77 @@
-import * as config from './config.json'
 import { Hono } from 'hono'
 import * as jose from 'jose'
+
+class ConfigurationError extends Error {
+	constructor(message) {
+		super(message)
+		this.name = 'ConfigurationError'
+	}
+}
+
+function requireStringBinding(env, name) {
+	const value = env?.[name]
+
+	if (typeof value !== 'string' || value.trim() === '') {
+		throw new ConfigurationError(`${name} must be set to a non-empty string.`)
+	}
+
+	return value
+}
+
+function loadGuildIds(value) {
+	if (value === undefined || value === null || (typeof value === 'string' && value.trim() === '')) {
+		return []
+	}
+
+	let guildIds = value
+
+	if (typeof value === 'string') {
+		try {
+			guildIds = JSON.parse(value)
+		} catch {
+			throw new ConfigurationError('DISCORD_GUILD_IDS must be a valid JSON array of strings.')
+		}
+	}
+
+	if (!Array.isArray(guildIds) || !guildIds.every(guildId => typeof guildId === 'string')) {
+		throw new ConfigurationError('DISCORD_GUILD_IDS must be an array of strings.')
+	}
+
+	return [...guildIds]
+}
+
+export function loadConfig(env) {
+	const clientId = requireStringBinding(env, 'DISCORD_CLIENT_ID')
+	const clientSecret = requireStringBinding(env, 'DISCORD_CLIENT_SECRET')
+	const redirectURL = requireStringBinding(env, 'CLOUDFLARE_ACCESS_REDIRECT_URL')
+	const guildIds = loadGuildIds(env?.DISCORD_GUILD_IDS)
+	const discordTokenValue = env?.DISCORD_TOKEN
+	const discordToken = typeof discordTokenValue === 'string' && discordTokenValue.trim() !== ''
+		? discordTokenValue
+		: undefined
+
+	if (discordTokenValue !== undefined && discordTokenValue !== null
+		&& typeof discordTokenValue !== 'string') {
+		throw new ConfigurationError('DISCORD_TOKEN must be a string when set.')
+	}
+
+	if (guildIds.length > 0 && discordToken === undefined) {
+		throw new ConfigurationError('DISCORD_TOKEN must be set when DISCORD_GUILD_IDS is not empty.')
+	}
+
+	if (!env?.KV || typeof env.KV.get !== 'function' || typeof env.KV.put !== 'function') {
+		throw new ConfigurationError('KV must be bound to a KV namespace.')
+	}
+
+	return {
+		clientId,
+		clientSecret,
+		redirectURL,
+		guildIds,
+		discordToken,
+		KV: env.KV
+	}
+}
 
 const algorithm = {
 	name: 'RSASSA-PKCS1-v1_5',
@@ -38,7 +109,21 @@ async function loadOrGenerateKeyPair(KV) {
 
 const app = new Hono()
 
+app.use('*', async (c, next) => {
+	c.set('config', loadConfig(c.env))
+	await next()
+})
+
+app.onError((error, c) => {
+	if (error instanceof ConfigurationError) {
+		return c.text(`Configuration error: ${error.message}`, 500)
+	}
+
+	return c.text('Internal Server Error', 500)
+})
+
 app.get('/authorize/:scopemode', async (c) => {
+	const config = c.get('config')
 
 	if (c.req.query('client_id') !== config.clientId
 		|| c.req.query('redirect_uri') !== config.redirectURL
@@ -59,6 +144,7 @@ app.get('/authorize/:scopemode', async (c) => {
 })
 
 app.post('/token', async (c) => {
+	const config = c.get('config')
 	const body = await c.req.parseBody()
 	const code = body['code']
 	const params = new URLSearchParams({
@@ -104,12 +190,12 @@ app.post('/token', async (c) => {
 
 	let roleClaims = {}
 
-	if (c.env.DISCORD_TOKEN && 'serversToCheckRolesFor' in config) {
-		await Promise.all(config.serversToCheckRolesFor.map(async guildId => {
+	if (config.discordToken && config.guildIds.length > 0) {
+		await Promise.all(config.guildIds.map(async guildId => {
 			if (servers.includes(guildId)) {
 				let memberPromise = fetch(`https://discord.com/api/v10/guilds/${guildId}/members/${userInfo['id']}`, {
 					headers: {
-						'Authorization': 'Bot ' + c.env.DISCORD_TOKEN
+						'Authorization': 'Bot ' + config.discordToken
 					}
 				})
 				// i had issues doing this any other way?
@@ -145,7 +231,7 @@ app.post('/token', async (c) => {
 		.setProtectedHeader({ alg: 'RS256' })
 		.setExpirationTime('1h')
 		.setAudience(config.clientId)
-		.sign((await loadOrGenerateKeyPair(c.env.KV)).privateKey)
+		.sign((await loadOrGenerateKeyPair(config.KV)).privateKey)
 
 	return c.json({
 		...r,
@@ -155,7 +241,8 @@ app.post('/token', async (c) => {
 })
 
 app.get('/jwks.json', async (c) => {
-	let publicKey = (await loadOrGenerateKeyPair(c.env.KV)).publicKey
+	const config = c.get('config')
+	let publicKey = (await loadOrGenerateKeyPair(config.KV)).publicKey
 	return c.json({
 		keys: [{
 			alg: 'RS256',

@@ -17,6 +17,25 @@
   "engines": {
     "node": ">=22.0.0"
   },
+  "cloudflare": {
+    "bindings": {
+      "DISCORD_CLIENT_ID": {
+        "description": "Plain text. Enter the Application ID from your [Discord application](https://discord.com/developers/applications)."
+      },
+      "DISCORD_CLIENT_SECRET": {
+        "description": "Secret. Enter the OAuth2 client secret from your Discord application."
+      },
+      "CLOUDFLARE_ACCESS_REDIRECT_URL": {
+        "description": "Plain text. Enter your Cloudflare Access callback URL, for example `https://<team>.cloudflareaccess.com/cdn-cgi/access/callback`."
+      },
+      "DISCORD_GUILD_IDS": {
+        "description": "Optional plain text. Enter a JSON array of Discord guild ID strings to add role claims, or `[]` to disable role lookups."
+      },
+      "DISCORD_TOKEN": {
+        "description": "Optional secret when `DISCORD_GUILD_IDS` is empty. Enter the Discord bot token used to read guild member roles."
+      }
+    }
+  },
   "dependencies": {
     "hono": "^4.12.32",
     "jose": "^5.10.0"
